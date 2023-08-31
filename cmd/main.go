@@ -15,10 +15,11 @@ func main() {
 
 	defer repo.CloseConnection()
 
-	r.HandleFunc("/", handler.HelloHandler())
+	//r.HandleFunc("/", handler.HelloHandler())
 	r.HandleFunc("/users/get", handler.GetUsersHandler(repo)).Methods("GET")
 	r.HandleFunc("/signup", handler.SignUpHandler(repo)).Methods("POST")
 	r.HandleFunc("/login", handler.LogInHandler(repo)).Methods("POST")
+	r.HandleFunc("/", handler.HTMLHandler())
 
 	http.Handle("/", r)
 	http.ListenAndServe(":8080", nil)

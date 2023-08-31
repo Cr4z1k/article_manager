@@ -19,7 +19,7 @@ CREATE TABLE authors(
 
 CREATE TABLE themes(
 	id SERIAL PRIMARY KEY NOT NULL,
-	name TEXT
+	name TEXT UNIQUE NOT NULL
 );
 
 CREATE TABLE articles(
@@ -89,14 +89,56 @@ END
 $$; 
 
 
-CREATE FUNCTION get_hash(_login TEXT)
+CREATE OR REPLACE FUNCTION get_hash(_login TEXT)
 RETURNS TEXT
 LANGUAGE PLPGSQL
 AS $$
 BEGIN
-	RETURN (SELECT password_hash FROM users_credentials WHERE login = _login);
+	RETURN COALESCE((SELECT password_hash FROM users_credentials WHERE login = _login), '');
 END
 $$;
+
+
+CREATE OR REPLACE FUNCTION add_article(_name TEXT, authors INT[], themes TEXT[], _link TEXT, _file_path TEXT)
+RETURNS BOOL
+LANGUAGE PLPGSQL
+AS $$
+DECLARE
+	new_article_id INT;
+	theme TEXT;
+	author_id INT;
+BEGIN
+	IF NOT EXISTS   (
+					SELECT 1
+					FROM articles
+					WHERE link = _link OR _file_path = _file_path
+					)
+	THEN
+		INSERT INTO articles(name, link, file_path)
+		VALUES (_name, _link, _file_path)
+		RETURNING id into new_article_id;
+	
+		FOR theme IN SELECT UNNEST(themes)
+		LOOP
+			INSERT INTO article_themes(art_id, theme_id)
+			VALUES (new_article_id, (SELECT id FROM themes WHERE name = theme));
+		END LOOP;
+	
+		FOR author_id IN SELECT UNNEST(authors)
+		LOOP
+			INSERT INTO article_authors(art_id, auth_id)
+			VALUES (new_article_id, author_id);
+		END LOOP;
+		
+		RETURN true;
+	ELSE
+		RETURN false;
+	END IF;
+END
+$$;
+
+		
+	
 ------------------------- Procedures -----------------------------------------------
 
 ------------------------- Tables check ---------------------------------------------

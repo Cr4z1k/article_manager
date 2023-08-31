@@ -11,3 +11,9 @@ type logInJSON struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 }
+
+type AddArticleJSON struct {
+	Name    string   `json:"name"`
+	Authors []string `json:"authors"`
+	Themes  []string `json:"themes"`
+}
