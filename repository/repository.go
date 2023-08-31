@@ -6,6 +6,8 @@ import (
 
 type Repository interface {
 	GetUsers() *sql.Rows
+	SignUp(name string, login string, password_hash string, is_author bool) (bool, string)
+	GetHash(login string) string
 	CloseConnection()
 }
 

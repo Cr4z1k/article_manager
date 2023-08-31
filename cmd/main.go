@@ -3,9 +3,9 @@ package main
 import (
 	"net/http"
 
-	"github.com/Cr4z1k/http_api/db"
-	"github.com/Cr4z1k/http_api/handler"
-	"github.com/Cr4z1k/http_api/repository"
+	"github.com/Cr4z1k/article_manager/db"
+	"github.com/Cr4z1k/article_manager/handler"
+	"github.com/Cr4z1k/article_manager/repository"
 	"github.com/gorilla/mux"
 )
 
@@ -13,10 +13,12 @@ func main() {
 	r := mux.NewRouter()
 	repo := repository.NewRepository(db.GetConnection())
 
-	defer db.GetConnection().Close()
+	defer repo.CloseConnection()
 
 	r.HandleFunc("/", handler.HelloHandler())
 	r.HandleFunc("/users/get", handler.GetUsersHandler(repo)).Methods("GET")
+	r.HandleFunc("/signup", handler.SignUpHandler(repo)).Methods("POST")
+	r.HandleFunc("/login", handler.LogInHandler(repo)).Methods("POST")
 
 	http.Handle("/", r)
 	http.ListenAndServe(":8080", nil)

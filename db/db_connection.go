@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 
-	"github.com/Cr4z1k/http_api/conf"
+	"github.com/Cr4z1k/article_manager/conf"
 	_ "github.com/lib/pq"
 )
 
