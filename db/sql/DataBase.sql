@@ -53,6 +53,15 @@ CREATE TABLE articles_rating(
 	art_id INT REFERENCES articles(id) ON DELETE CASCADE NOT NULL,
 	rating INT CHECK (rating >= 1 AND rating <= 5)
 );
+------------------------- Check functions ------------------------------------------
+CREATE FUNCTION is_author_exists(_id INT)
+RETURNS BOOL
+LANGUAGE PLPGSQL
+AS $$
+BEGIN
+	RETURN EXISTS (SELECT 1 FROM authors where user_id = _id);
+END
+$$;
 ------------------------- Functions ------------------------------------------------
 CREATE FUNCTION sign_up(_name TEXT, _login TEXT, _password_hash TEXT, is_author bool)
 RETURNS JSON
@@ -106,12 +115,12 @@ AS $$
 DECLARE
 	new_article_id INT;
 	theme TEXT;
-	author_id INT;
+	_id INT;
 BEGIN
 	IF NOT EXISTS   (
 					SELECT 1
 					FROM articles
-					WHERE link = _link OR _file_path = _file_path
+					WHERE link = _link OR file_path = _file_path
 					)
 	THEN
 		INSERT INTO articles(name, link, file_path)
@@ -124,10 +133,15 @@ BEGIN
 			VALUES (new_article_id, (SELECT id FROM themes WHERE name = theme));
 		END LOOP;
 	
-		FOR author_id IN SELECT UNNEST(authors)
+		FOR _id IN SELECT UNNEST(authors)
 		LOOP
-			INSERT INTO article_authors(art_id, auth_id)
-			VALUES (new_article_id, author_id);
+			IF (SELECT is_author_exists(_id))
+			THEN
+				INSERT INTO article_authors(art_id, auth_id)
+				VALUES (new_article_id, (SELECT id FROM authors WHERE user_id = _id));
+			ELSE
+				RETURN false;
+			END IF;
 		END LOOP;
 		
 		RETURN true;
@@ -137,22 +151,23 @@ BEGIN
 END
 $$;
 
-		
 	
 ------------------------- Procedures -----------------------------------------------
 
 ------------------------- Tables check ---------------------------------------------
 select * from users
-select * from authors
 select * from users_credentials
 
-		
+select * from authors
+select * from authors_rating
 
+select * from themes
 
+select * from articles
+select * from articles_rating
+select * from article_themes
+select * from article_authors
 
-
-
-
-
-
-
+delete from articles;
+delete from article_themes;
+delete from article_authors;

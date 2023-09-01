@@ -3,6 +3,8 @@ package repository
 import (
 	"database/sql"
 	"encoding/json"
+
+	"github.com/lib/pq"
 )
 
 type registrationResult struct {
@@ -47,7 +49,7 @@ func (r *repository) GetHash(login string) string {
 	return passHash
 }
 
-func (r *repository) AddArticle(name string, authors []int, themes []string, link string, file_path string) bool {
+func (r *repository) AddArticle(name string, authors pq.Int64Array, themes pq.StringArray, link string, file_path string) bool {
 	var success bool
 
 	err := r.db.QueryRow("select add_article($1, $2, $3, $4, $5)", name, authors, themes, link, file_path).Scan(&success)

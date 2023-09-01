@@ -1,15 +1,20 @@
 package handler
 
 import (
+	"crypto/sha512"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/Cr4z1k/article_manager/repository"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -88,19 +93,7 @@ func LogInHandler(repo repository.Repository) func(w http.ResponseWriter, r *htt
 	}
 }
 
-func HTMLHandler(filename string) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		html, err := os.ReadFile(filename)
-		if err != nil {
-			panic(err)
-		}
-
-		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprint(w, string(html))
-	}
-}
-
-func UploadFile() func(w http.ResponseWriter, r *http.Request) {
+func AddArticleHandler(repo repository.Repository) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		file, header, err := r.FormFile("file")
 		if err != nil {
@@ -128,15 +121,55 @@ func UploadFile() func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error copying file", http.StatusInternalServerError)
 			return
 		}
+		// Correct part
 
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("File uploaded"))
+		// Incorrect part
+		articleName := r.FormValue("name")
+		authors := strings.Split(r.FormValue("authors"), ", ")
+
+		var themes pq.StringArray
+		for _, theme := range strings.Split(r.FormValue("themes"), ", ") {
+			themes = append(themes, theme)
+		}
+
+		var authorsID pq.Int64Array
+		for _, authorLink := range authors {
+			urlParse, err := url.Parse(authorLink)
+			if err != nil {
+				panic(err)
+			}
+
+			id, err := strconv.Atoi(urlParse.Query().Get("id"))
+			if err != nil {
+				panic(err)
+			}
+
+			authorsID = append(authorsID, int64(id))
+		}
+
+		link := generateLink(fileName)
+		success := repo.AddArticle(articleName, authorsID, themes, link, "articles/"+fileName)
+		fmt.Println(success)
+		if !success {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Article was not added"))
+			os.Remove(filepath.Join(path, fileName))
+		} else {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Article was added"))
+		}
 	}
 }
 
-func AddArticleHandler(repo repository.Repository) func(w http.ResponseWriter, r *http.Request) {
+func HTMLHandler(filename string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		html, err := os.ReadFile(filename)
+		if err != nil {
+			panic(err)
+		}
 
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, string(html))
 	}
 }
 
@@ -149,9 +182,22 @@ func generateFileName(fileName string, folderPath string) (string, error) {
 		filePath := filepath.Join(folderPath, uniqueName)
 		_, err := os.Stat(filePath)
 		if os.IsNotExist(err) {
+			fmt.Printf("Generated name: %s\n", uniqueName)
+
 			return uniqueName, nil
-		} else {
-			return "", fmt.Errorf("failed to generate unique filename")
 		}
 	}
+}
+
+func generateLink(fileName string) string {
+	hash := sha512.New()
+
+	hash.Write([]byte(fileName))
+	hashed := hash.Sum(nil)
+
+	hashedString := hex.EncodeToString(hashed)
+
+	fmt.Printf("Generated link: %s\n", hashedString)
+
+	return "localhost:8080/article/" + hashedString
 }
