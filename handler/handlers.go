@@ -100,7 +100,6 @@ func AddArticleHandler(repo repository.Repository) func(w http.ResponseWriter, r
 			http.Error(w, "Error uploading file", http.StatusBadRequest)
 			return
 		}
-		defer file.Close()
 
 		path := filepath.Join(".", "articles")
 
@@ -114,16 +113,23 @@ func AddArticleHandler(repo repository.Repository) func(w http.ResponseWriter, r
 			http.Error(w, "Error creating file", http.StatusInternalServerError)
 			return
 		}
-		defer out.Close()
 
 		_, err = io.Copy(out, file)
 		if err != nil {
 			http.Error(w, "Error copying file", http.StatusInternalServerError)
 			return
 		}
-		// Correct part
 
-		// Incorrect part
+		err = file.Close()
+		if err != nil {
+			panic(err)
+		}
+
+		err = out.Close()
+		if err != nil {
+			panic(err)
+		}
+
 		articleName := r.FormValue("name")
 		authors := strings.Split(r.FormValue("authors"), ", ")
 
@@ -151,9 +157,14 @@ func AddArticleHandler(repo repository.Repository) func(w http.ResponseWriter, r
 		success := repo.AddArticle(articleName, authorsID, themes, link, "articles/"+fileName)
 		fmt.Println(success)
 		if !success {
+			repo.DeleteArticleByPath("articles/" + fileName)
+
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Article was not added"))
-			os.Remove(filepath.Join(path, fileName))
+			err = os.Remove("articles/" + fileName)
+			if err != nil {
+				panic(err)
+			}
 		} else {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Article was added"))

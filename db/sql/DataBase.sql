@@ -27,7 +27,7 @@ CREATE TABLE articles(
 	name TEXT,
 	rating NUMERIC(4, 3),
 	link TEXT,
-	file_path TEXT NOT NULL
+	file_path TEXT UNIQUE NOT NULL
 );
 
 CREATE TABLE article_themes(
@@ -59,7 +59,16 @@ RETURNS BOOL
 LANGUAGE PLPGSQL
 AS $$
 BEGIN
-	RETURN EXISTS (SELECT 1 FROM authors where user_id = _id);
+	RETURN EXISTS (SELECT 1 FROM authors WHERE user_id = _id);
+END
+$$;
+
+CREATE FUNCTION is_theme_exists(_name TEXT)
+RETURNS BOOL
+LANGUAGE PLPGSQL
+AS $$
+BEGIN
+	RETURN EXISTS (SELECT 1 FROM themes WHERE name = _name);
 END
 $$;
 ------------------------- Functions ------------------------------------------------
@@ -129,8 +138,13 @@ BEGIN
 	
 		FOR theme IN SELECT UNNEST(themes)
 		LOOP
-			INSERT INTO article_themes(art_id, theme_id)
-			VALUES (new_article_id, (SELECT id FROM themes WHERE name = theme));
+			IF (SELECT is_theme_exists(theme))
+			THEN
+				INSERT INTO article_themes(art_id, theme_id)
+				VALUES (new_article_id, (SELECT id FROM themes WHERE name = theme));
+			ELSE
+				RETURN false;
+			END IF;
 		END LOOP;
 	
 		FOR _id IN SELECT UNNEST(authors)
@@ -153,7 +167,20 @@ $$;
 
 	
 ------------------------- Procedures -----------------------------------------------
-
+CREATE OR REPLACE PROCEDURE delete_article_by_path(filepath TEXT)
+LANGUAGE PLPGSQL
+AS $$
+DECLARE
+	_id INT;
+BEGIN
+	SELECT id INTO _id FROM articles WHERE file_path = filepath;
+	
+	DELETE FROM articles where id = _id;
+	DELETE FROM article_authors where art_id = _id;
+	DELETE FROM article_themes where art_id = _id;
+	DELETE FROM articles_rating where art_id = _id;
+END
+$$; call delete_article_by_path('articles/article_1.txt')
 ------------------------- Tables check ---------------------------------------------
 select * from users
 select * from users_credentials

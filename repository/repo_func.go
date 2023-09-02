@@ -60,6 +60,13 @@ func (r *repository) AddArticle(name string, authors pq.Int64Array, themes pq.St
 	return success
 }
 
+func (r *repository) DeleteArticleByPath(path string) {
+	_, err := r.db.Exec("call delete_article_by_path($1)", path)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (r *repository) CloseConnection() {
 	r.db.Close()
 }
